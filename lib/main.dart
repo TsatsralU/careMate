@@ -1,45 +1,35 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:http/http.dart' as http;
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+// ── 서버 주소 설정 ──
+// 에뮬레이터: http://10.0.2.2:8000
+// 실제 기기:  http://본인PC_IP주소:8000  (ipconfig로 확인)
+const String serverUrl = 'https://ornamented-jeramy-achromatically.ngrok-free.app';
+const String userId = 'user_001';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '건강지킴이',
+void main() => runApp(const MaterialApp(
+      home: PlantCareApp(),
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        fontFamily: 'NanumGothic',
-        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
-      ),
-      home: const MainScreen(),
-    );
-  }
-}
+    ));
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+class PlantCareApp extends StatefulWidget {
+  const PlantCareApp({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<PlantCareApp> createState() => _PlantCareAppState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _PlantCareAppState extends State<PlantCareApp> {
   int _currentIndex = 0;
-  
+
   final List<Widget> _screens = [
     const HomeScreen(),
-    const MedicineScreen(),
-    const VoiceChatScreen(),
-    const HealthRecordScreen(),
+    const ChatScreen(),
+    const HistoryScreen(),
   ];
 
   @override
@@ -49,41 +39,20 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF6ECE3B),
-        unselectedItemColor: Colors.grey,
-        selectedLabelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
+        selectedItemColor: Colors.green,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded, size: 28),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.medication_rounded, size: 28),
-            label: '약 보관함',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.mic_rounded, size: 28),
-            label: 'AI 건강 상담',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart_rounded, size: 28),
-            label: '건강 기록',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.eco), label: '내 식물'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: '대화하기'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: '복약 기록'),
         ],
       ),
     );
   }
 }
 
-// ============================================
+// ────────────────────────────────────────
 // 홈 화면
-// ============================================
-
+// ────────────────────────────────────────
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -92,747 +61,398 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final String userName = '김철수';
-  final int plantLevel = 5;
-  final double plantProgress = 0.75;
-  final int daysUntilNextLevel = 3;
+  int plantLevel = 3;
+  int todayMedicine = 2;
+  int totalMedicine = 45;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 헤더
-              Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF6ECE3B),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.eco_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    '건강지킴이',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 30),
-
-              Text(
-                '안녕하세요, $userName님!',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '오늘도 건강한 하루 보내세요. 약 드실 시간입니다.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // 화분 성장 카드
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF6ECE3B), Color(0xFF5AB82E)],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6ECE3B).withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.emoji_events,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '레벨 $plantLevel: 튼튼한 새싹',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      '약을 잘 드셔서\n화분이 쑥쑥 자랐어요!',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '다음 단계까지 ${daysUntilNextLevel}번 더 드시면 꽃이 펴요.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '현재 성장도 ${(plantProgress * 100).toInt()}%',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.9),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const Text(
-                                    '목표 100%',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: LinearProgressIndicator(
-                                  value: plantProgress,
-                                  minHeight: 12,
-                                  backgroundColor: Colors.white.withValues(alpha: 0.3),
-                                  valueColor: const AlwaysStoppedAnimation<Color>(
-                                    Color(0xFFFFC107),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '🌱',
-                              style: TextStyle(fontSize: 60),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '오늘 드실 약',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6ECE3B).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      '3개 남음',
-                      style: TextStyle(
-                        color: Color(0xFF6ECE3B),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              _buildMedicineCard(
-                '아침 식후약',
-                '혈압약, 비타민C',
-                '오전 8:00',
-                true,
-                '완료됨',
-              ),
-
-              const SizedBox(height: 12),
-
-              _buildMedicineCard(
-                '점심 식후 약',
-                '당뇨약, 관절 영양제',
-                '오후 1:00 (30분 지남)',
-                false,
-                '지금 드세요',
-                isUrgent: true,
-              ),
-
-              const SizedBox(height: 12),
-
-              _buildMedicineCard(
-                '저녁 식후약',
-                '혈압약, 칼슘',
-                '오후 7:00',
-                false,
-                '예정',
-              ),
-            ],
-          ),
-        ),
+      backgroundColor: Colors.green.shade50,
+      appBar: AppBar(
+        title: const Text('내 반려 식물'),
+        backgroundColor: Colors.green,
+        elevation: 0,
       ),
-    );
-  }
-
-  Widget _buildMedicineCard(
-    String title,
-    String medicines,
-    String time,
-    bool isCompleted,
-    String status, {
-    bool isUrgent = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isUrgent
-              ? const Color(0xFFFF5252)
-              : isCompleted
-                  ? const Color(0xFF6ECE3B)
-                  : Colors.grey.shade200,
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: isCompleted
-                  ? const Color(0xFF6ECE3B).withValues(alpha: 0.1)
-                  : isUrgent
-                      ? const Color(0xFFFF5252).withValues(alpha: 0.1)
-                      : Colors.grey.shade100,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isCompleted
-                  ? Icons.check_circle
-                  : isUrgent
-                      ? Icons.error
-                      : Icons.access_time,
-              color: isCompleted
-                  ? const Color(0xFF6ECE3B)
-                  : isUrgent
-                      ? const Color(0xFFFF5252)
-                      : Colors.grey,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  medicines,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  time,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isUrgent ? const Color(0xFFFF5252) : Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!isCompleted)
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6ECE3B),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                status,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFF6ECE3B).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                status,
-                style: const TextStyle(
-                  color: Color(0xFF6ECE3B),
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================
-// 약 보관함 화면
-// ============================================
-
-class MedicineScreen extends StatelessWidget {
-  const MedicineScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '등록된 약 목록',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 20),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 3,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                children: [
-                  _buildMedicineBox('💊', '하루 1회', Colors.blue),
-                  _buildMedicineBox('💊', '하루 3회', Colors.orange),
-                  _buildAddMedicineBox(context),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMedicineBox(String emoji, String frequency, Color color) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 50)),
-          const SizedBox(height: 8),
-          Text(
-            frequency,
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddMedicineBox(BuildContext context) {
-    return InkWell(
-      onTap: () {},
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade300, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+      body: SingleChildScrollView(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_circle_outline, size: 50, color: Colors.grey.shade400),
-            const SizedBox(height: 8),
-            Text(
-              '약 추가',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: const Offset(0, 5))],
+              ),
+              child: Column(
+                children: [
+                  const Text('🌱 나의 건강나무', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 20),
+                  Text(_getPlantEmoji(plantLevel), style: const TextStyle(fontSize: 120)),
+                  const SizedBox(height: 10),
+                  Text('Lv. $plantLevel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green.shade700)),
+                  const SizedBox(height: 20),
+                  LinearProgressIndicator(
+                    value: (totalMedicine % 10) / 10,
+                    backgroundColor: Colors.grey.shade200,
+                    color: Colors.green,
+                    minHeight: 10,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  const SizedBox(height: 10),
+                  Text('다음 레벨까지 ${10 - (totalMedicine % 10)}번 남았어요!', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                ],
               ),
             ),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: const Offset(0, 5))],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(Icons.calendar_today, color: Colors.green.shade700),
+                    const SizedBox(width: 10),
+                    const Text('오늘의 복약 현황', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ]),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatusCard('오늘 복약', '$todayMedicine회', Icons.medication, Colors.blue),
+                      _buildStatusCard('총 복약', '$totalMedicine회', Icons.favorite, Colors.red),
+                      _buildStatusCard('연속 일수', '7일', Icons.local_fire_department, Colors.orange),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: ElevatedButton(
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  _showMedicineDialog(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.add_circle, size: 24),
+                    SizedBox(width: 10),
+                    Text('약 먹었어요!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
           ],
         ),
       ),
     );
   }
+
+  String _getPlantEmoji(int level) {
+    switch (level) {
+      case 1: return '🌱';
+      case 2: return '🌿';
+      case 3: return '🪴';
+      case 4: return '🌳';
+      case 5: return '🌲';
+      default: return '🌱';
+    }
+  }
+
+  Widget _buildStatusCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+      child: Column(children: [
+        Icon(icon, color: color, size: 30),
+        const SizedBox(height: 8),
+        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 4),
+        Text(title, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+      ]),
+    );
+  }
+
+  void _showMedicineDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('복약 기록하기'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('어떤 약을 드셨나요?'),
+          const SizedBox(height: 20),
+          TextField(decoration: InputDecoration(hintText: '예) 혈압약, 소화제', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                todayMedicine++;
+                totalMedicine++;
+                if (totalMedicine % 10 == 0) plantLevel = (plantLevel % 5) + 1;
+              });
+              Navigator.pop(context);
+              _showGrowthAnimation();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('기록하기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGrowthAnimation() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('🎉', style: TextStyle(fontSize: 60)),
+          const SizedBox(height: 20),
+          const Text('식물이 쑥쑥 자라고 있어요!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Text('건강 관리 잘하고 계세요!', style: TextStyle(color: Colors.grey.shade600)),
+        ]),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인'))],
+      ),
+    );
+  }
 }
 
-// ============================================
-// 음성 AI 상담 화면 (완전 통합!)
-// ============================================
-
-class VoiceChatScreen extends StatefulWidget {
-  const VoiceChatScreen({super.key});
+// ────────────────────────────────────────
+// 챗봇 화면 - 서버 연동 버전
+// ────────────────────────────────────────
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
 
   @override
-  State<VoiceChatScreen> createState() => _VoiceChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _VoiceChatScreenState extends State<VoiceChatScreen> {
-  late stt.SpeechToText _speech;
-  bool _isListening = false;
-  String _text = '';
-  final List<ChatMessage> _messages = [];
+class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  String _wordsSpoken = "마이크 버튼을 눌러 말씀해주세요";
+  List<ChatMessage> _messages = [];
+  bool _isRecording = false;
+  bool _isLoading = false; // AI 답변 대기 중
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
-    _speech = stt.SpeechToText();
     _initSpeech();
-    
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat(reverse: true);
+
     _messages.add(ChatMessage(
-      text: '안녕하세요, 김철수님! 😊\n\n오늘 건강은 어떠세요?\n무엇을 도와드릴까요?',
+      text: "안녕하세요! 저는 새싹이예요 🌱 오늘 기분은 어떠세요?",
       isUser: false,
+      time: DateTime.now(),
     ));
   }
 
-  Future<void> _initSpeech() async {
-    final status = await Permission.microphone.request();
+  void _initSpeech() async {
+    PermissionStatus status = await Permission.microphone.request();
     if (status.isGranted) {
-      await _speech.initialize();
+      _speechEnabled = await _speechToText.initialize();
+      setState(() {});
     }
   }
 
-  void _listen() async {
-    if (!_isListening) {
-      bool available = await _speech.initialize();
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          onResult: (val) {
-            setState(() {
-              _text = val.recognizedWords;
-            });
-          },
-          localeId: 'ko_KR',
-        );
+  void _toggleRecording() async {
+    if (!_speechEnabled) return;
+
+    if (_isRecording) {
+      HapticFeedback.lightImpact();
+      await _speechToText.stop();
+      setState(() => _isRecording = false);
+
+      if (_wordsSpoken.isNotEmpty && _wordsSpoken != "마이크 버튼을 눌러 말씀해주세요") {
+        await _sendMessage(_wordsSpoken);
       }
     } else {
-      setState(() => _isListening = false);
-      _speech.stop();
-      
-      if (_text.isNotEmpty) {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _isRecording = true;
+        _wordsSpoken = "";
+      });
+      await _speechToText.listen(
+        onResult: (result) => setState(() => _wordsSpoken = result.recognizedWords),
+        localeId: "ko_KR",
+        listenMode: ListenMode.confirmation,
+      );
+    }
+  }
+
+  // ── 핵심: 서버 호출 ──
+  Future<void> _sendMessage(String text) async {
+    setState(() {
+      _messages.add(ChatMessage(text: text, isUser: true, time: DateTime.now()));
+      _isLoading = true;
+      _wordsSpoken = "마이크 버튼을 눌러 말씀해주세요";
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/chat'),
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({'user_id': userId, 'message': text}),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         setState(() {
-          _messages.insert(0, ChatMessage(text: _text, isUser: true));
+          _messages.add(ChatMessage(text: data['reply'], isUser: false, time: DateTime.now()));
         });
-        
-        Future.delayed(const Duration(milliseconds: 500), () {
-          setState(() {
-            _messages.insert(0, ChatMessage(
-              text: _getAIResponse(_text),
-              isUser: false,
-            ));
-          });
-        });
-        
-        _text = '';
+      } else {
+        _addErrorMessage();
       }
+    } catch (e) {
+      _addErrorMessage();
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-  String _getAIResponse(String userText) {
-    final text = userText.toLowerCase();
-    
-    if (text.contains('약')) {
-      return '약 드실 시간이에요! 💊\n\n건강하게 챙겨드세요.\n물과 함께 드시는 게 좋습니다.';
-    } else if (text.contains('안녕') || text.contains('좋아')) {
-      return '네, 반가워요! 😊\n\n오늘도 건강한 하루 보내세요!';
-    } else if (text.contains('아프') || text.contains('통증')) {
-      return '많이 불편하시군요. 😟\n\n증상이 심하시면 병원에 가보시는 게 좋겠어요.\n충분히 쉬세요.';
-    } else if (text.contains('감사') || text.contains('고마')) {
-      return '천만에요! 💚\n\n언제든 편하게 물어보세요.';
-    } else {
-      return '네, 알겠습니다! 💚\n\n더 궁금한 게 있으면\n말씀해주세요.';
-    }
+  void _addErrorMessage() {
+    setState(() {
+      _messages.add(ChatMessage(
+        text: '새싹이가 잠시 자리를 비웠어요. 서버가 켜져 있는지 확인해주세요 🌱',
+        isUser: false,
+        time: DateTime.now(),
+      ));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Colors.green.shade50,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF6ECE3B),
-        elevation: 0,
-        title: const Text(
-          'AI 건강 상담',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
+        title: const Text('🌱 새싹이와 대화하기'),
+        backgroundColor: Colors.green,
       ),
       body: Column(
         children: [
           Expanded(
-            child: Container(
-              color: Colors.white,
-              child: _messages.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('💬', style: TextStyle(fontSize: 100)),
-                          SizedBox(height: 20),
-                          Text(
-                            '아래 마이크 버튼을 눌러\n말씀해주세요',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 20,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      reverse: true,
-                      padding: const EdgeInsets.all(20),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        return _buildChatBubble(message);
-                      },
-                    ),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              reverse: true,
+              itemCount: _messages.length + (_isLoading ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (_isLoading && index == 0) return _buildLoadingBubble();
+                final msg = _messages[_messages.length - 1 - (index - (_isLoading ? 1 : 0))];
+                return _buildChatBubble(msg);
+              },
             ),
           ),
-
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: const Offset(0, -5))],
             ),
             child: Column(
               children: [
-                if (_isListening)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6ECE3B).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF6ECE3B),
-                        width: 2,
-                      ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _isRecording ? Colors.red.shade100 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _isRecording ? Colors.red : Colors.grey.shade300, width: 3),
+                  ),
+                  child: Row(children: [
+                    _isRecording
+                        ? AnimatedBuilder(
+                            animation: _animationController,
+                            builder: (context, child) => Icon(Icons.graphic_eq, color: Colors.red, size: 24 + (_animationController.value * 8)),
+                          )
+                        : Icon(Icons.mic_none, color: Colors.grey.shade600, size: 24),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(
+                          _isRecording ? "🎤 듣고 있어요..." : (_isLoading ? "새싹이가 생각 중..." : "준비 완료"),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _isRecording ? Colors.red : Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _wordsSpoken.isEmpty ? "마이크 버튼을 눌러 말씀해주세요" : _wordsSpoken,
+                          style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ]),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.mic, color: Color(0xFF6ECE3B), size: 24),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _text.isEmpty ? '듣고 있어요...' : _text,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              color: Colors.black87,
-                            ),
-                          ),
+                  ]),
+                ),
+                const SizedBox(height: 24),
+                InkWell(
+                  onTap: _isLoading ? null : _toggleRecording,
+                  borderRadius: BorderRadius.circular(50),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: _isLoading
+                            ? [Colors.grey.shade400, Colors.grey.shade600]
+                            : _isRecording
+                                ? [Colors.red.shade400, Colors.red.shade700]
+                                : [Colors.green.shade400, Colors.green.shade700],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isRecording ? Colors.red : Colors.green).withOpacity(0.5),
+                          blurRadius: 30,
+                          spreadRadius: _isRecording ? 15 : 5,
                         ),
                       ],
                     ),
-                  ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: _listen,
-                      child: Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: _isListening
-                                ? [const Color(0xFFFF5252), const Color(0xFFFF1744)]
-                                : [const Color(0xFF6ECE3B), const Color(0xFF5AB82E)],
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: (_isListening
-                                      ? const Color(0xFFFF5252)
-                                      : const Color(0xFF6ECE3B))
-                                  .withValues(alpha: 0.5),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _isListening ? Icons.stop_rounded : Icons.mic_rounded,
-                          color: Colors.white,
-                          size: 40,
-                        ),
-                      ),
+                    child: Icon(
+                      _isLoading ? Icons.hourglass_empty : (_isRecording ? Icons.stop : Icons.mic),
+                      color: Colors.white,
+                      size: 50,
                     ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  _isListening
-                      ? '🎤 녹음 중... 다시 누르면 종료'
-                      : '🎤 마이크 버튼을 눌러 말씀해주세요',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _isRecording ? Colors.red.shade50 : Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _isLoading ? '🌱 새싹이가 답변 중...' : (_isRecording ? '🛑 버튼을 다시 눌러 녹음 종료' : '🎤 버튼을 눌러 녹음 시작'),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _isRecording ? Colors.red.shade700 : Colors.green.shade700),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
@@ -847,42 +467,35 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
     return Align(
       alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         decoration: BoxDecoration(
-          gradient: message.isUser
-              ? const LinearGradient(
-                  colors: [Color(0xFF6ECE3B), Color(0xFF5AB82E)],
-                )
-              : null,
-          color: message.isUser ? null : Colors.grey.shade100,
+          color: message.isUser ? Colors.green : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.1),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5, offset: const Offset(0, 2))],
         ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            fontSize: 16,
-            height: 1.5,
-            color: message.isUser ? Colors.white : Colors.black87,
-          ),
-        ),
+        child: Text(message.text, style: TextStyle(fontSize: 16, color: message.isUser ? Colors.white : Colors.black87)),
+      ),
+    );
+  }
+
+  Widget _buildLoadingBubble() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+        child: const Text('새싹이가 생각 중... 🌱', style: TextStyle(fontSize: 16, color: Colors.grey)),
       ),
     );
   }
 
   @override
   void dispose() {
-    _speech.stop();
+    _speechToText.stop();
+    _animationController.dispose();
     super.dispose();
   }
 }
@@ -890,99 +503,51 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> {
 class ChatMessage {
   final String text;
   final bool isUser;
-
-  ChatMessage({required this.text, required this.isUser});
+  final DateTime time;
+  ChatMessage({required this.text, required this.isUser, required this.time});
 }
 
-// ============================================
-// 건강 기록 화면
-// ============================================
-
-class HealthRecordScreen extends StatelessWidget {
-  const HealthRecordScreen({super.key});
+// ────────────────────────────────────────
+// 복약 기록 화면
+// ────────────────────────────────────────
+class HistoryScreen extends StatelessWidget {
+  const HistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '이번 주 건강 점수',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 20),
+      backgroundColor: Colors.green.shade50,
+      appBar: AppBar(title: const Text('복약 기록'), backgroundColor: Colors.green),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 10,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5, offset: const Offset(0, 2))],
+            ),
+            child: Row(children: [
               Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 200,
-                      child: Center(
-                        child: Text(
-                          '📊\n건강 점수 차트',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6ECE3B).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '평균 점수',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            '88점',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF6ECE3B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.green.shade100, shape: BoxShape.circle),
+                child: const Icon(Icons.medication, color: Colors.green),
               ),
-            ],
-          ),
-        ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('혈압약', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('2026년 2월 ${12 - index}일', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                ]),
+              ),
+              const Icon(Icons.check_circle, color: Colors.green, size: 28),
+            ]),
+          );
+        },
       ),
     );
   }
