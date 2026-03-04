@@ -4,11 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'database/intake_repository.dart';
+import 'database/models.dart';
 
 // ── 서버 주소 설정 ──
 // 에뮬레이터: http://10.0.2.2:8000
 // 실제 기기:  http://본인PC_IP주소:8000  (ipconfig로 확인)
-const String serverUrl = 'https://ornamented-jeramy-achromatically.ngrok-free.app';
+const String serverUrl = 'https://ornamented-jeramy-achromatically.ngrok-free.dev';
 const String userId = 'user_001';
 
 void main() => runApp(const MaterialApp(
@@ -61,9 +63,33 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int plantLevel = 3;
-  int todayMedicine = 2;
-  int totalMedicine = 45;
+  final IntakeRepository _repo = IntakeRepository();
+  int plantLevel = 1;
+  int todayMedicine = 0;
+  int totalMedicine = 0;
+  int consecutiveDays = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final tree = await _repo.getTreeState();
+    final today = await _repo.getTodayIntakeCount();
+    final total = await _repo.getTotalIntakeCount();
+    if (tree != null) {
+      setState(() {
+        plantLevel = tree.growthLevel;
+        consecutiveDays = tree.consecutiveDays;
+      });
+    }
+    setState(() {
+      todayMedicine = today;
+      totalMedicine = total;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _buildStatusCard('오늘 복약', '$todayMedicine회', Icons.medication, Colors.blue),
                       _buildStatusCard('총 복약', '$totalMedicine회', Icons.favorite, Colors.red),
-                      _buildStatusCard('연속 일수', '7일', Icons.local_fire_department, Colors.orange),
+                      _buildStatusCard('연속 일수', '$consecutiveDays일', Icons.local_fire_department, Colors.orange),
                     ],
                   ),
                 ],
@@ -210,6 +236,11 @@ class _HomeScreenState extends State<HomeScreen> {
               });
               Navigator.pop(context);
               _showGrowthAnimation();
+              // DB에 복용 기록 저장
+              _repo.recordIntake(
+                detectionMethod: DetectionMethod.manual,
+                note: '버튼으로 기록',
+              ).then((_) => _loadData());
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             child: const Text('기록하기'),
@@ -249,11 +280,14 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
   final SpeechToText _speechToText = SpeechToText();
+  final IntakeRepository _repo = IntakeRepository();
   bool _speechEnabled = false;
   String _wordsSpoken = "마이크 버튼을 눌러 말씀해주세요";
   List<ChatMessage> _messages = [];
   bool _isRecording = false;
-  bool _isLoading = false; // AI 답변 대기 중
+  bool _isLoading = false;
+  bool _showTextInput = false; // 텍스트 입력 모드
+  final TextEditingController _textController = TextEditingController();
   late AnimationController _animationController;
 
   @override
@@ -325,6 +359,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         setState(() {
           _messages.add(ChatMessage(text: data['reply'], isUser: false, time: DateTime.now()));
         });
+        // 약 복용 키워드 감지 → DB 자동 기록
+        if (_isMedicineTaken(text)) {
+          await _repo.recordIntake(
+            detectionMethod: DetectionMethod.voice,
+            note: text,
+          );
+        }
       } else {
         _addErrorMessage();
       }
@@ -343,6 +384,12 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         time: DateTime.now(),
       ));
     });
+  }
+
+  /// 약 복용 키워드 감지
+  bool _isMedicineTaken(String text) {
+    final keywords = ['약 먹었', '약먹었', '복용했', '먹었어', '먹었습니다', '챙겨먹었', '약 챙겼'];
+    return keywords.any((keyword) => text.contains(keyword));
   }
 
   @override
@@ -455,6 +502,47 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                     textAlign: TextAlign.center,
                   ),
                 ),
+                const SizedBox(height: 12),
+                // 텍스트/음성 전환 버튼
+                TextButton.icon(
+                  onPressed: () => setState(() => _showTextInput = !_showTextInput),
+                  icon: Icon(_showTextInput ? Icons.mic : Icons.keyboard, color: Colors.green),
+                  label: Text(
+                    _showTextInput ? '음성으로 전환' : '타이핑으로 전환',
+                    style: const TextStyle(color: Colors.green),
+                  ),
+                ),
+                // 텍스트 입력창
+                if (_showTextInput)
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textController,
+                        decoration: InputDecoration(
+                          hintText: '메시지를 입력하세요...',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(25)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        ),
+                        onSubmitted: (text) {
+                          if (text.trim().isNotEmpty) {
+                            _sendMessage(text.trim());
+                            _textController.clear();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: _isLoading ? null : () {
+                        final text = _textController.text.trim();
+                        if (text.isNotEmpty) {
+                          _sendMessage(text);
+                          _textController.clear();
+                        }
+                      },
+                      icon: const Icon(Icons.send, color: Colors.green, size: 30),
+                    ),
+                  ]),
               ],
             ),
           ),
@@ -496,6 +584,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   void dispose() {
     _speechToText.stop();
     _animationController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 }
@@ -510,45 +599,82 @@ class ChatMessage {
 // ────────────────────────────────────────
 // 복약 기록 화면
 // ────────────────────────────────────────
-class HistoryScreen extends StatelessWidget {
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  final IntakeRepository _repo = IntakeRepository();
+  List<IntakeRecord> _records = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecords();
+  }
+
+  Future<void> _loadRecords() async {
+    final records = await _repo.getAllRecords();
+    setState(() => _records = records);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.green.shade50,
       appBar: AppBar(title: const Text('복약 기록'), backgroundColor: Colors.green),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: 10,
-        itemBuilder: (context, index) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5, offset: const Offset(0, 2))],
+      body: _records.isEmpty
+          ? const Center(child: Text('복약 기록이 없어요 🌱', style: TextStyle(fontSize: 16)))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _records.length,
+              itemBuilder: (context, index) {
+                final record = _records[index];
+                final date = DateTime.fromMillisecondsSinceEpoch(record.takenAt);
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5, offset: const Offset(0, 2))],
+                  ),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.green.shade100, shape: BoxShape.circle),
+                      child: const Icon(Icons.medication, color: Colors.green),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(
+                          record.note ?? '복약 기록',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${date.year}년 ${date.month}월 ${date.day}일 ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
+                          style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                        ),
+                        Text(
+                          record.detectionMethod.name == 'voice' ? '🎤 음성 기록' : '👆 수동 기록',
+                          style: TextStyle(fontSize: 12, color: Colors.green.shade600),
+                        ),
+                      ]),
+                    ),
+                    Icon(
+                      record.isConfirmed ? Icons.check_circle : Icons.cancel,
+                      color: record.isConfirmed ? Colors.green : Colors.red,
+                      size: 28,
+                    ),
+                  ]),
+                );
+              },
             ),
-            child: Row(children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.green.shade100, shape: BoxShape.circle),
-                child: const Icon(Icons.medication, color: Colors.green),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('혈압약', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text('2026년 2월 ${12 - index}일', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                ]),
-              ),
-              const Icon(Icons.check_circle, color: Colors.green, size: 28),
-            ]),
-          );
-        },
-      ),
     );
   }
 }
