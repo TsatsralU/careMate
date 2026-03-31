@@ -10,11 +10,11 @@ import 'package:permission_handler/permission_handler.dart';
 // ──────────────────────────────────────────────────────────
 // ★ UUID 교체 완료 (E2 비콘)
 // ──────────────────────────────────────────────────────────
-const String kTargetUUID = 'FDA50693-A4E2-4FB1-AFCF-C6EB07647825';
+const String kTargetUUID = '6CB03F73-0B99-2A9C-377F-0F4B40FF71EA';
 
-const int kRssiImmediate   = -50;
-const int kRssiNear        = -65;
-const int kCooldownMinutes = 1;
+const int kRssiImmediate   = -65;
+const int kRssiNear        = -80;
+const int kCooldownMinutes = 5;
 
 class BeaconService {
   static final BeaconService _instance = BeaconService._internal();

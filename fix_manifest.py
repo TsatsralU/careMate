@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+﻿content = open(r'C:\careMate\android\app\src\main\AndroidManifest.xml').read()
+new_content = '''<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
@@ -13,6 +14,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="caremate"
+        android:name=""
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -41,4 +43,7 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
-</manifest>
+</manifest>'''
+with open(r'C:\careMate\android\app\src\main\AndroidManifest.xml', 'w', encoding='utf-8') as f:
+    f.write(new_content)
+print('완료')

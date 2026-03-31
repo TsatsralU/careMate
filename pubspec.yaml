@@ -1,6 +1,6 @@
 name: caremate_app
-description: "케어메이트 - 노인 복약 관리 앱"
-publish_to: 'none'
+description: CareMate App
+publish_to: none
 version: 1.0.0+1
 
 environment:
@@ -10,13 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-
-  # 기존 패키지
   http: ^1.2.0
-  speech_to_text: ^6.6.0
+  speech_to_text: ^7.0.0
   permission_handler: ^11.3.0
-
-  # 새로 추가 (비콘 + DB)
   flutter_blue_plus: ^1.31.0
   flutter_local_notifications: ^17.0.0
   sqflite: ^2.3.3
